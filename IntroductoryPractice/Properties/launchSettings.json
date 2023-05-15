@@ -1,0 +1,8 @@
+{
+  "profiles": {
+   "CourseProjectFEM": {
+      "commandName": "Project",
+      "workingDirectory": "C:\\Users\\Dmitry\\source\\repos\\IntroductoryPractice\\IntroductoryPractice"
+   }
+  }
+}
