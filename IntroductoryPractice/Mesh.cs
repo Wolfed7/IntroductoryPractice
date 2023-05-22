@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 
 namespace CourseProjectFEM;
 
-
 public class Mesh
 {
    private double _timeStart;
@@ -290,10 +289,10 @@ public class Mesh
                _elements.Add(
                new int[8]
                {
-                  k * splitsY + i * (splitsX + 1) + j,
-                  k * splitsY + i * (splitsX + 1) + j + 1,
-                  k * splitsY + (i + 1) * (splitsX + 1) + j,
-                  k * splitsY + (i + 1) * (splitsX + 1) + j + 1,
+                  k * (splitsY + 1) * (splitsX + 1) + i * (splitsX + 1) + j,
+                  k * (splitsY + 1) * (splitsX + 1) + i * (splitsX + 1) + j + 1,
+                  k * (splitsY + 1) * (splitsX + 1) + (i + 1) * (splitsX + 1) + j,
+                  k * (splitsY + 1) * (splitsX + 1) + (i + 1) * (splitsX + 1) + j + 1,
 
                   (k + 1) * (splitsY + 1) * (splitsX + 1) + i * (splitsX + 1) + j,
                   (k + 1) * (splitsY + 1) * (splitsX + 1) + i * (splitsX + 1) + j + 1,
@@ -355,7 +354,9 @@ public class Mesh
             foreach (var node in element)
                if (position < node)
                   // Нестабильная штука.
-                  if (_points[position].X == _points[node].X || _points[position].Y == _points[node].Y || _points[position].Z == _points[node].Z)
+                  if (_points[position].X == _points[node].X && _points[position].Y == _points[node].Y
+                     || _points[position].X == _points[node].X && _points[position].Z == _points[node].Z
+                     || _points[position].Y == _points[node].Y && _points[position].Z == _points[node].Z)
                   {
                      if(!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node))
                         _allFaces[position].Add(node);

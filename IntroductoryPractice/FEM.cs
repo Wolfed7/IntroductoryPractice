@@ -136,6 +136,15 @@ public class FEM
          _qLayers[i] = new Vector(_mesh.NodesCount);
    }
 
+   private bool IsElementFictive(int ielem)
+   {
+      for (int i = 0; i < _mesh.Elements[ielem].Length; i++)
+         if (_mesh.FictiveNodes.Contains(_mesh.Elements[ielem][i]))
+            return true;
+
+      return false;
+   }
+
    private void AssemblySLAE()
    {
       _globalVector.Fill(0);
@@ -143,6 +152,9 @@ public class FEM
 
       for (int ielem = 0; ielem < _mesh.ElementsCount; ielem++)
       {
+         //if (IsElementFictive(ielem))
+         //   continue;
+
          AssemblyLocalSLAE(ielem);
          AddLocalMatrixToGlobal(ielem);
          AddLocalVectorToGlobal(ielem);
@@ -247,6 +259,7 @@ public class FEM
          _globalVector[_mesh.Elements[ielem][i]] += _localVector[i];
    }
 
+   // Пока не должна работать
    public void AccountSecondConditions()
    {
       for (int i = 0; i < _mesh.BoundaryRibs2.Count; i++)

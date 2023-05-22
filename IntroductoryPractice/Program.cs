@@ -19,5 +19,6 @@ mesh.Output(path4, path6);
 var fem = new FEM();
 fem.SetMesh(mesh);
 fem.SetSolver(new BCG(1e-15, 2000));
+//fem.SetSolver(new LU());
 
 fem.Compute();
