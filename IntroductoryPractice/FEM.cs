@@ -271,6 +271,7 @@ public class FEM
                Math.Abs(_mesh.Points[i].X - _mesh.Points[_mesh.BoundaryRibs2[i][j]].X),
                Math.Abs(_mesh.Points[i].Y - _mesh.Points[_mesh.BoundaryRibs2[i][j]].Y)
                );
+            h = Math.Max(h, Math.Abs(_mesh.Points[i].Z - _mesh.Points[_mesh.BoundaryRibs2[i][j]].Z));
 
             double Theta1 = Parameters.dU_dn(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _currentTimeLayer);
             double Theta2 = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryRibs2[i][j]].X, _mesh.Points[_mesh.BoundaryRibs2[i][j]].Y, _mesh.Points[_mesh.BoundaryRibs2[i][j]].Z, _currentTimeLayer);

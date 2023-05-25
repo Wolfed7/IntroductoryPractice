@@ -111,8 +111,8 @@ public class Mesh
             _linesZ = sr.ReadLine().Split().Select(double.Parse).ToArray();
 
             sr.ReadLine();
-            _areas = sr.ReadToEnd().Split("\n").Select(row => row.Split()
-            .Select(val => int.Parse(val) - 1).ToArray()).ToList();
+            while(!sr.EndOfStream)
+               _areas.Add(sr.ReadLine().Split().Select(val => int.Parse(val) - 1).ToArray());
          }
 
          using (var sr = new StreamReader(splitsPath))
@@ -151,8 +151,8 @@ public class Mesh
 
          using (var sr = new StreamReader(boundaryConditionsPath))
          {
-            _boundaryConditions = sr.ReadToEnd().Split("\n").Select(row => row.Split()
-            .Select(val => int.Parse(val) - 1).ToArray()).ToList();
+            while (!sr.EndOfStream)
+               _boundaryConditions.Add(sr.ReadLine().Split().Select(val => int.Parse(val) - 1).ToArray());
 
             for (int i = 0; i < _boundaryConditions.Count; i++)
                _boundaryConditions[i][0]++;
