@@ -57,16 +57,17 @@ public class FEM
    {
       BuildPortrait();
 
-      // Костыль - сборка двух слоёв вместо одного начального.
       for (int i = 0; i < _qLayers[0].Size; i++)
-         _qLayers[0][i] = Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[0]);
+         _qLayers[0][i] = Parameters.U_t0(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[0]);
 
-      for (int i = 0; i < _qLayers[1].Size; i++)
-         _qLayers[1][i] = Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[1]);
+      //for (int i = 0; i < _qLayers[1].Size; i++)
+      //   _qLayers[1][i] = Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[1]);
 
-      // DEBUG: решение, которое должно быть найдено в ходе поиска третьего слоя.
-      for (int i = 0; i < _qLayers[2].Size; i++)
-         Console.WriteLine($"{i}:  {Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[2])}");
+      BuildSecondTimeLayer();
+
+      //// DEBUG: решение, которое должно быть найдено в ходе поиска третьего слоя.
+      //for (int i = 0; i < _qLayers[2].Size; i++)
+      //   Console.WriteLine($"{i}:  {Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[2])}");
 
       for (int i = 2; i < _mesh.TimeLayers.Count; i++)
       {
@@ -93,19 +94,26 @@ public class FEM
          //   for (int j = 0; j < _qLayers[2].Size; j++)
          //      Console.WriteLine($"{j}:  {_qLayers[2][j]:e2}");
          //}
-         // DEBUG: погрешность на третьем слое
-         if (i == 2)
-         {
-            for (int j = 0; j < _qLayers[2].Size; j++)
-               Console.WriteLine($"{j}:  {Math.Abs(Parameters.U(_mesh.Points[j].X, _mesh.Points[j].Y, _mesh.Points[j].Z, _mesh.TimeLayers[2]) - _qLayers[2][j]):e2}");
-         }
+         //// DEBUG: погрешность на третьем слое
+         //if (i == 2)
+         //{
+         //   for (int j = 0; j < _qLayers[2].Size; j++)
+         //      Console.WriteLine($"{j}:  {Math.Abs(Parameters.U(_mesh.Points[j].X, _mesh.Points[j].Y, _mesh.Points[j].Z, _mesh.TimeLayers[2]) - _qLayers[2][j]):e2}");
+         //}
 
          _qLayers[0] = _qLayers[1];
          _qLayers[1] = _qLayers[2];
 
-         PrintCurrentLayerErrorNorm();
+         //PrintCurrentLayerErrorNorm();
       }
       //PrintTimeLayersNorm();
+
+
+      using (var sr = new StreamWriter("LayerWeights.dat"))
+      {
+         for (int j = 0; j < _qLayers[2].Size; j++)
+            sr.WriteLine(_qLayers[2][j]);
+      }
    }
 
    public void BuildPortrait()
@@ -143,6 +151,21 @@ public class FEM
             return true;
 
       return false;
+   }
+
+   public void BuildSecondTimeLayer()
+   {
+      _currentTimeLayer = _mesh.TimeLayers[1];
+      _prevTimeLayer = _mesh.TimeLayers[0];
+      _t0 = _currentTimeLayer - _prevTimeLayer;
+
+      AssemblySLAE();
+      AccountSecondConditions();
+      AccountFirstConditions();
+      ExcludeFictiveNodes();
+
+      _solver.SetSLAE(_globalVector, _globalMatrix);
+      _qLayers[1] = _solver.Solve();
    }
 
    private void AssemblySLAE()
@@ -205,7 +228,9 @@ public class FEM
 
       _localMassSigma = Parameters.Sigma() * _localMassSigma;
       // В матрицу жёсткости запишу всю локальную А.
-      _localStiffness = Parameters.Lambda() * _localStiffness + (_t + _t0) / _t / _t0 * _localMassSigma;
+
+      _localStiffness = _prevTimeLayer != 0 ?  Parameters.Lambda() * _localStiffness + (_t + _t0) / _t / _t0 * _localMassSigma
+         : Parameters.Lambda() * _localStiffness + 1 / _t0 * _localMassSigma;
 
 
       for (int i = 0; i < NodesPerElement; i++)
@@ -217,13 +242,18 @@ public class FEM
       for (int i = 0; i < NodesPerElement; i++)
       {
          qLocalPrevPrev[i] = _qLayers[_prevPrevTimeLayerI][_mesh.Elements[ielem][i]];
-         qLocalPrev[i] = _qLayers[_prevTimeLayerI][_mesh.Elements[ielem][i]];
+
+         qLocalPrev[i] = _prevTimeLayer != 0 ?_qLayers[_prevTimeLayerI][_mesh.Elements[ielem][i]]
+            : _qLayers[0][_mesh.Elements[ielem][i]];
       }
 
       // Вектор правой части d (тоже локальный)
-      _localVector = _tempMass * _localVector
+      _localVector = _prevTimeLayer != 0 ?
+         _tempMass * _localVector
          - (_t0 / _t / _t1) * _localMassSigma * qLocalPrevPrev
-         + _t / _t1 / _t0 * _localMassSigma * qLocalPrev;
+         + _t / _t1 / _t0 * _localMassSigma * qLocalPrev
+
+         : _tempMass * _localVector + 1 / _t0 * _localMassSigma * qLocalPrev;
    }
 
    private void AddLocalMatrixToGlobal(int ielem)
@@ -259,26 +289,48 @@ public class FEM
          _globalVector[_mesh.Elements[ielem][i]] += _localVector[i];
    }
 
-   // Пока не должна работать
    public void AccountSecondConditions()
    {
-      for (int i = 0; i < _mesh.BoundaryRibs2.Count; i++)
+      for (int i = 0; i < _mesh.BoundaryFaces2.Count; i++)
       {
-         for (int j = 0; j < _mesh.BoundaryRibs2[i].Count; j++)
+         double eps = 1e-14;
+         double hx = 0, hy = 0;
+
+         if(Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].X - _mesh.Points[_mesh.BoundaryFaces2[i][1]].X) < eps)
          {
-            double h = Math.Max
-               (
-               Math.Abs(_mesh.Points[i].X - _mesh.Points[_mesh.BoundaryRibs2[i][j]].X),
-               Math.Abs(_mesh.Points[i].Y - _mesh.Points[_mesh.BoundaryRibs2[i][j]].Y)
-               );
-            h = Math.Max(h, Math.Abs(_mesh.Points[i].Z - _mesh.Points[_mesh.BoundaryRibs2[i][j]].Z));
-
-            double Theta1 = Parameters.dU_dn(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _currentTimeLayer);
-            double Theta2 = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryRibs2[i][j]].X, _mesh.Points[_mesh.BoundaryRibs2[i][j]].Y, _mesh.Points[_mesh.BoundaryRibs2[i][j]].Z, _currentTimeLayer);
-
-            _globalVector[i] += h / 6.0 * (2.0 * Theta1 + Theta2);
-            _globalVector[_mesh.BoundaryRibs2[i][j]] += h / 6.0 * (Theta1 + 2.0 * Theta2);
+            hx = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Y - _mesh.Points[_mesh.BoundaryFaces2[i][1]].Y);
+            hy = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Z - _mesh.Points[_mesh.BoundaryFaces2[i][2]].Z);
          }
+         else if (Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Y - _mesh.Points[_mesh.BoundaryFaces2[i][2]].Y) < eps)
+         {
+            hx = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].X - _mesh.Points[_mesh.BoundaryFaces2[i][1]].X);
+            hy = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Z - _mesh.Points[_mesh.BoundaryFaces2[i][2]].Z);
+         }
+         else if (Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Z - _mesh.Points[_mesh.BoundaryFaces2[i][2]].Z) < eps)
+         {
+            hx = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].X - _mesh.Points[_mesh.BoundaryFaces2[i][1]].X);
+            hy = Math.Abs(_mesh.Points[_mesh.BoundaryFaces2[i][0]].Y - _mesh.Points[_mesh.BoundaryFaces2[i][2]].Y);
+         }
+
+         double coeffM = hx * hy / 36;
+         var mass = new Matrix(4);
+         mass[0, 0] = 4.0; mass[0, 1] = 2.0; mass[0, 2] = 2.0; mass[0, 3] = 1.0;
+         mass[1, 0] = 2.0; mass[1, 1] = 4.0; mass[1, 2] = 1.0; mass[1, 3] = 2.0;
+         mass[2, 0] = 2.0; mass[2, 1] = 1.0; mass[2, 2] = 4.0; mass[2, 3] = 2.0;
+         mass[3, 0] = 1.0; mass[3, 1] = 2.0; mass[3, 2] = 2.0; mass[3, 3] = 4.0;
+
+
+         var Theta = new Vector(4);
+         Theta[0] = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryFaces2[i][0]].X, _mesh.Points[_mesh.BoundaryFaces2[i][0]].Y, _mesh.Points[_mesh.BoundaryFaces2[i][0]].Z, _currentTimeLayer);
+         Theta[1] = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryFaces2[i][1]].X, _mesh.Points[_mesh.BoundaryFaces2[i][1]].Y, _mesh.Points[_mesh.BoundaryFaces2[i][1]].Z, _currentTimeLayer);
+         Theta[2] = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryFaces2[i][2]].X, _mesh.Points[_mesh.BoundaryFaces2[i][2]].Y, _mesh.Points[_mesh.BoundaryFaces2[i][2]].Z, _currentTimeLayer);
+         Theta[3] = Parameters.dU_dn(_mesh.Points[_mesh.BoundaryFaces2[i][3]].X, _mesh.Points[_mesh.BoundaryFaces2[i][3]].Y, _mesh.Points[_mesh.BoundaryFaces2[i][3]].Z, _currentTimeLayer);
+
+         var localBoundaryAccount = coeffM * mass * Theta;
+
+         for (int j = 0; j < _mesh.BoundaryFaces2[i].Length; j++)
+            _globalVector[_mesh.BoundaryFaces2[i][j]] += localBoundaryAccount[j];
+               
       }
    }
 

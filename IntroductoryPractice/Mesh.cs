@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace CourseProjectFEM;
 
@@ -47,7 +48,7 @@ public class Mesh
    private IDictionary<int, int> _areaNodes;
    private HashSet<int> _boundaryNodes1;
    private HashSet<int> _boundaryNodes2;
-   private List<List<int>> _boundaryFaceRibs2;
+   private IDictionary<int, int[]> _boundaryFaces2;
    private HashSet<int> _fictiveNodes;
 
    public int NodesCount => _points.Count;
@@ -58,14 +59,14 @@ public class Mesh
    public ImmutableList<int[]> Elements => _elements.ToImmutableList();
    public ImmutableDictionary<int, int> AreaNodes => _areaNodes.ToImmutableDictionary();
    public ImmutableHashSet<int> BoundaryNodes1 => _boundaryNodes1.ToImmutableHashSet();
-   public ImmutableList<List<int>>  BoundaryRibs2 => _boundaryFaceRibs2.ToImmutableList();
+   public ImmutableDictionary<int, int[]>  BoundaryFaces2 => _boundaryFaces2.ToImmutableDictionary();
    public ImmutableHashSet<int> FictiveNodes => _fictiveNodes.ToImmutableHashSet();
 
 
    public Mesh()
    {
       _allFaces = new();
-      _boundaryFaceRibs2 = new();
+      _boundaryFaces2 = new Dictionary<int, int[]>();
       _areaNodes = new Dictionary<int, int>();
       _boundaryConditions = new();
       _boundaryNodes1 = new();
@@ -346,37 +347,119 @@ public class Mesh
       }
 
 
-      // TODO: Кринж со списком рёбер.
-      _boundaryFaceRibs2 = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
+      //// TODO: Кринж со списком рёбер.
+      //_boundaryFaces2 = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
+      //_allFaces = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
+      //foreach (var element in Elements)
+      //   foreach (var position in element)
+      //      foreach (var node in element)
+      //         if (position < node)
+      //            // Нестабильная штука.
+      //            if (_points[position].X == _points[node].X && _points[position].Y == _points[node].Y
+      //               || _points[position].X == _points[node].X && _points[position].Z == _points[node].Z
+      //               || _points[position].Y == _points[node].Y && _points[position].Z == _points[node].Z)
+      //            {
+      //               if(!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node) && !_allFaces[position].Contains(node))
+      //                  _allFaces[position].Add(node);
+      //               if (_boundaryNodes2.Contains(position) && _boundaryNodes2.Contains(node) && !_boundaryFaces2[position].Contains(node))
+      //                  _boundaryFaces2[position].Add(node);
+      //            }
+
+      double eps = 1e-14;
       _allFaces = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
       foreach (var element in Elements)
          foreach (var position in element)
             foreach (var node in element)
                if (position < node)
-                  // Нестабильная штука.
-                  if (_points[position].X == _points[node].X && _points[position].Y == _points[node].Y
-                     || _points[position].X == _points[node].X && _points[position].Z == _points[node].Z
-                     || _points[position].Y == _points[node].Y && _points[position].Z == _points[node].Z)
+               {
+
+                  if (
+                     _points[position].X - _points[node].X < eps && _points[position].Y - _points[node].Y < eps
+                     || _points[position].X - _points[node].X < eps && _points[position].Z - _points[node].Z < eps
+                     || _points[position].Y - _points[node].Y < eps && _points[position].Z - _points[node].Z < eps
+                     )
                   {
-                     if(!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node))
+                     if (!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node) && !_allFaces[position].Contains(node))
                         _allFaces[position].Add(node);
-                     if (_boundaryNodes2.Contains(position) && _boundaryNodes2.Contains(node) && !_boundaryFaceRibs2[position].Contains(node))
-                        _boundaryFaceRibs2[position].Add(node);
                   }
+               }
+
+
+
+      /*
+       
+                        back
+                 6┌────────────┐7       
+                    top        │      
+              4┌───────────┐5  │      
+               │           │   │ right
+         left  │           │   │      
+               │   front   │   │      
+               │           │   ┘3     
+              0└───────────┘1
+                  bottom
+      
+
+         2┌───────────┐3      4┌───────────┐5      6┌───────────┐7
+          │           │        │           │        │           │ 
+          │           │        │           │        │           │ 
+          │  bottom   │        │   front   │        │    top    │ 
+          │           │        │           │        │           │ 
+         0└───────────┘1      0└───────────┘1      4└───────────┘5
+
+
+         4┌───────────┐6      6┌───────────┐7      5┌───────────┐7
+          │           │        │           │        │           │ 
+          │           │        │           │        │           │ 
+          │   left    │        │   back    │        │   right   │ 
+          │           │        │           │        │           │ 
+         0└───────────┘2      2└───────────┘3      1└───────────┘3
+
+       */
+
+      static bool IsFaceBoundary(HashSet<int> set, int[] i)
+         => set.Contains(i[0]) && set.Contains(i[1]) && set.Contains(i[2]) && set.Contains(i[3]);
+
+      int[] bottom = new int[4] { 0, 1, 2, 3 };
+      int[] front = new int[4] { 0, 1, 4, 5 };
+      int[] top = new int[4] { 4, 5, 6, 7 };
+      int[] left = new int[4] { 0, 2, 4, 6 };
+      int[] back = new int[4] { 2, 3, 6, 7 };
+      int[] right = new int[4] { 1, 3, 5, 7 };
+
+      IDictionary<int, int[]> faces = new Dictionary<int, int[]>()
+      {
+         {0, bottom},
+         {1, front},
+         {2, top},
+         {3, left},
+         {4, back},
+         {5, right}
+      };
+
+      _boundaryFaces2 = new Dictionary<int, int[]>();
+      for (int i = 0; i < _elements.Count; i++)
+         foreach (var face in faces)
+         {
+            var faceglobal = new int[4] { _elements[i][face.Value[0]], _elements[i][face.Value[1]], _elements[i][face.Value[2]], _elements[i][face.Value[3]] };
+            if (IsFaceBoundary(_boundaryNodes2, faceglobal))
+               _boundaryFaces2.Add(_boundaryFaces2.Count, faceglobal);
+         }
+
 
    }
 
-   public void Output(string filepath1, string filepath2)
+   public void Output(string pointsPath, string ribsPath)
    {
       try
       {
-         using (var sw = new StreamWriter(filepath1))
+         using (var sw = new StreamWriter(pointsPath))
          {
             foreach (var point in _points)
             sw.WriteLine(point.ToString());
          }
 
-         using (var sw = new StreamWriter(filepath2))
+         using (var sw = new StreamWriter(ribsPath))
          {
             for (int i = 0; i < _allFaces.Count; i++)
                for (int j = 0; j < _allFaces[i].Count; j++)

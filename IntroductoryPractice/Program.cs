@@ -1,7 +1,7 @@
 ﻿using CourseProjectFEM;
 using System.Globalization;
 
-CultureInfo.CurrentCulture = new CultureInfo("en-US");
+CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 
 const string path1 = "Mesh/Input/Settings.dat";
 const string path2 = "Mesh/Input/Splitting.dat";

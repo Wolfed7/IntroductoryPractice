@@ -50,9 +50,7 @@ public class Parameters
    {
       switch (area)
       {
-         case 1: return 1;
-         case 2: return 2;
-         default: return 1;
+         default: return 401;
       }
    }
 
@@ -60,24 +58,27 @@ public class Parameters
    {
       switch (area)
       {
-         case 1: return 1;
-         case 2: return 2;
-         default: return 1;
+         default: return 8933 * 385;
       }
    }
 
    public static double F(double x, double y, double z, double t)
    {
-      return 2 * t;
+      return 2 / Sigma() * x * y * z * t;
+   }
+
+   public static double U_t0(double x, double y, double z, double t)
+   {
+      return 300;
    }
 
    public static double U(double x, double y, double z, double t)
    {
-      return x + y + z + t * t;
+      return 310;
    }
 
    public static double dU_dn(double x, double y, double z, double t)
    {
-      return -1;
+      return 0;
    }
 }
