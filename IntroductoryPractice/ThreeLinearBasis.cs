@@ -33,6 +33,22 @@ public static class ThreeLinearBasis
    public static double Psi8(Point3D point, Interval intervalX, Interval intervalY, Interval intervalZ)
       => Basis2(point.X, intervalX) * Basis2(point.Y, intervalY) * Basis2(point.Z, intervalZ);
 
+   public static double PsiI(int i, Point3D point, Interval intervalX, Interval intervalY, Interval intervalZ)
+   {
+      switch (i) 
+      {
+         case 0: return Psi1(point, intervalX, intervalY, intervalZ);
+         case 1: return Psi2(point, intervalX, intervalY, intervalZ);
+         case 2: return Psi3(point, intervalX, intervalY, intervalZ);
+         case 3: return Psi4(point, intervalX, intervalY, intervalZ);
+         case 4: return Psi5(point, intervalX, intervalY, intervalZ);
+         case 5: return Psi6(point, intervalX, intervalY, intervalZ);
+         case 6: return Psi7(point, intervalX, intervalY, intervalZ);
+         case 7: return Psi8(point, intervalX, intervalY, intervalZ);
+         default: return 0.0;
+      }
+   }
+
    public static double Basis1(double variable, Interval interval)
       => (interval.RightEnd - variable) / interval.Length;
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using IntroductoryPractice;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -60,11 +61,12 @@ public class FEM
       for (int i = 0; i < _qLayers[0].Size; i++)
          _qLayers[0][i] = Parameters.U_t0(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[0]);
 
-      //for (int i = 0; i < _qLayers[1].Size; i++)
-      //   _qLayers[1][i] = Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[1]);
+      for (int i = 0; i < _qLayers[1].Size; i++)
+         _qLayers[1][i] = Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[1]);
 
-      BuildSecondTimeLayer();
-
+      //BuildSecondTimeLayer();
+      _qLayers[2] = _qLayers[1];
+      PrintCurrentLayerErrorNorm();
       //// DEBUG: решение, которое должно быть найдено в ходе поиска третьего слоя.
       //for (int i = 0; i < _qLayers[2].Size; i++)
       //   Console.WriteLine($"{i}:  {Parameters.U(_mesh.Points[i].X, _mesh.Points[i].Y, _mesh.Points[i].Z, _mesh.TimeLayers[2])}");
@@ -104,7 +106,10 @@ public class FEM
          _qLayers[0] = _qLayers[1];
          _qLayers[1] = _qLayers[2];
 
-         //PrintCurrentLayerErrorNorm();
+         PrintCurrentLayerErrorNorm();
+         Point3D point = Point3D.Parse("3.5 3.5 3.5");
+         double denominator = Parameters.U(point.X, point.Y, point.Z, _currentTimeLayer);
+         //Console.WriteLine($"{Math.Abs(ComputeValueAtPoint(point) - Parameters.U(point.X, point.Y, point.Z, _currentTimeLayer)) / denominator:e2}");
       }
       //PrintTimeLayersNorm();
 
@@ -392,6 +397,37 @@ public class FEM
             }
          }
       }
+   }
+
+   public double ComputeValueAtPoint(Point3D point)
+   {
+      for (int i = 0; i < _mesh.ElementsCount; i++)
+      {
+         for (int j = 0; j < NodesPerElement; j++)
+         {
+            Point3D leftLeftLowerPoint = _mesh.Points[_mesh.Elements[i][0]];
+            Point3D rightRightUpperPoint = _mesh.Points[_mesh.Elements[i][7]];
+
+            if 
+               (
+               leftLeftLowerPoint.X < point.X && point.X < rightRightUpperPoint.X
+               && leftLeftLowerPoint.Y < point.Y && point.Y < rightRightUpperPoint.Y
+               && leftLeftLowerPoint.Z < point.Z && point.Z < rightRightUpperPoint.Z
+               )
+            {
+               double sum = 0;
+               Interval intervalX = new Interval(leftLeftLowerPoint.X, rightRightUpperPoint.X);
+               Interval intervalY = new Interval(leftLeftLowerPoint.Y, rightRightUpperPoint.Y);
+               Interval intervalZ = new Interval(leftLeftLowerPoint.Z, rightRightUpperPoint.Z);
+               for (int k = 0; k < NodesPerElement; k++)
+               {
+                  sum += _qLayers[2][_mesh.Elements[i][k]] * ThreeLinearBasis.PsiI(k, point, intervalX, intervalY, intervalZ);
+               }
+               return sum;
+            }
+         }
+      }
+      return 0.0;
    }
 
    public void PrintCurrentLayerErrorNorm()

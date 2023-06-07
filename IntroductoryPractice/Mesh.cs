@@ -194,7 +194,7 @@ public class Mesh
 
          _timeLayers.Add(_timeStart);
 
-         while (Math.Round(_timeLayers.Last() + h, 1) < _timeEnd)
+         for (int i = 0; i < _timeSplits - 1; i++)
          {
             _timeLayers.Add(_timeLayers.Last() + h);
             h *= _timeDischarge;
@@ -346,25 +346,6 @@ public class Mesh
             _fictiveNodes.Add(i);
       }
 
-
-      //// TODO: Кринж со списком рёбер.
-      //_boundaryFaces2 = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
-      //_allFaces = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
-      //foreach (var element in Elements)
-      //   foreach (var position in element)
-      //      foreach (var node in element)
-      //         if (position < node)
-      //            // Нестабильная штука.
-      //            if (_points[position].X == _points[node].X && _points[position].Y == _points[node].Y
-      //               || _points[position].X == _points[node].X && _points[position].Z == _points[node].Z
-      //               || _points[position].Y == _points[node].Y && _points[position].Z == _points[node].Z)
-      //            {
-      //               if(!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node) && !_allFaces[position].Contains(node))
-      //                  _allFaces[position].Add(node);
-      //               if (_boundaryNodes2.Contains(position) && _boundaryNodes2.Contains(node) && !_boundaryFaces2[position].Contains(node))
-      //                  _boundaryFaces2[position].Add(node);
-      //            }
-
       double eps = 1e-14;
       _allFaces = new List<int>[_points.Count].Select(_ => new List<int>()).ToList();
       foreach (var element in Elements)
@@ -374,9 +355,9 @@ public class Mesh
                {
 
                   if (
-                     _points[position].X - _points[node].X < eps && _points[position].Y - _points[node].Y < eps
-                     || _points[position].X - _points[node].X < eps && _points[position].Z - _points[node].Z < eps
-                     || _points[position].Y - _points[node].Y < eps && _points[position].Z - _points[node].Z < eps
+                     Math.Abs(_points[position].X - _points[node].X) < eps && Math.Abs(_points[position].Y - _points[node].Y) < eps
+                     || Math.Abs(_points[position].X - _points[node].X) < eps && Math.Abs(_points[position].Z - _points[node].Z) < eps
+                     || Math.Abs(_points[position].Y - _points[node].Y) < eps && Math.Abs(_points[position].Z - _points[node].Z) < eps
                      )
                   {
                      if (!_fictiveNodes.Contains(position) && !_fictiveNodes.Contains(node) && !_allFaces[position].Contains(node))

@@ -24,7 +24,7 @@ public class Point3D
       return $"{X:e15} {Y:e15} {Z:e15}";
    }
 
-   public Point3D Parse(string input)
+   public static Point3D Parse(string input)
    {
       var data = input.Split().Select(double.Parse).ToList(); 
       return new Point3D(data[0], data[1], data[2]);
